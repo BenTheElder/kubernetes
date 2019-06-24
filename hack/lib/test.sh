@@ -75,8 +75,8 @@ kube::test::object_assert() {
   local expected=$4
   local args=${5:-}
 
-  for j in $(seq 1 ${tries}); do
-    res=$(eval kubectl get "${kube_flags[@]}" ${args} ${object} -o go-template=\"${request}\")
+  for j in $(seq 1 "${tries}"); do
+    res=$(eval kubectl get "${kube_flags[@]}" ${args} ${object} -o "go-template=${request}")
     if [[ "${res}" =~ ^$expected$ ]]; then
         echo -n "${green}"
         echo "$(kube::test::get_caller 3): Successful get ${object} ${request}: ${res}"
@@ -84,7 +84,7 @@ kube::test::object_assert() {
         return 0
     fi
     echo "Waiting for Get ${object} ${request} ${args}: expected: ${expected}, got: ${res}"
-    sleep $((${j}-1))
+    sleep $((j-1))
   done
 
   echo "${bold}${red}"
@@ -103,7 +103,7 @@ kube::test::get_object_jsonpath_assert() {
   local request=$2
   local expected=$3
 
-  res=$(eval kubectl get "${kube_flags[@]}" ${object} -o jsonpath=\"${request}\")
+  res=$(eval kubectl get "${kube_flags[@]}" "${object}" -o "jsonpath=${request}")
 
   if [[ "${res}" =~ ^$expected$ ]]; then
       echo -n "${green}"
@@ -126,12 +126,12 @@ kube::test::get_object_jsonpath_assert() {
 kube::test::describe_object_assert() {
   local resource=$1
   local object=$2
-  local matches=${@:3}
+  local matches=${*:3}
 
   result=$(eval kubectl describe "${kube_flags[@]}" ${resource} ${object})
 
   for match in ${matches}; do
-    if [[ ! $(echo "${result}" | grep ${match}) ]]; then
+    if ! grep -q "${match}" < "${result}"; then
       echo "${bold}${red}"
       echo "$(kube::test::get_caller): FAIL!"
       echo "Describe ${resource} ${object}"
@@ -163,7 +163,7 @@ kube::test::describe_object_events_assert() {
         result=$(eval kubectl describe "${kube_flags[@]}" "--show-events=${showevents}" ${resource} ${object})
     fi
 
-    if [[ -n $(echo "${result}" | grep "No events.\|Events:") ]]; then
+    if grep -q "No events.\|Events:" <"${result}"; then
         local has_events="true"
     else
         local has_events="false"
@@ -192,12 +192,12 @@ kube::test::describe_object_events_assert() {
 
 kube::test::describe_resource_assert() {
   local resource=$1
-  local matches=${@:2}
+  local matches=${* :2}
 
-  result=$(eval kubectl describe "${kube_flags[@]}" ${resource})
+  result=$(eval kubectl describe "${kube_flags[@]}" "${resource}")
 
   for match in ${matches}; do
-    if [[ ! $(echo "${result}" | grep ${match}) ]]; then
+    if ! grep -q "${match}" < "${result}"; then
       echo "${bold}${red}"
       echo "FAIL!"
       echo "Describe ${resource}"
@@ -222,9 +222,9 @@ kube::test::describe_resource_events_assert() {
     local resource=$1
     local showevents=${2:-"true"}
 
-    result=$(eval kubectl describe "${kube_flags[@]}" "--show-events=${showevents}" ${resource})
+    result=$(eval kubectl describe "${kube_flags[@]}" "--show-events=${showevents}" "${resource}")
 
-    if [[ $(echo "${result}" | grep "No events.\|Events:") ]]; then
+    if grep -q "No events.\|Events:"g <"${result}"; then
         local has_events="true"
     else
         local has_events="false"
@@ -252,7 +252,8 @@ kube::test::describe_resource_events_assert() {
 
 # Compare sort-by resource name output with expected order specify in the last parameter
 kube::test::if_sort_by_has_correct_order() {
-  local array=($(echo "$1" |awk '{if(NR!=1) print $1}'))
+  local array=()
+  kube::util::read-array array < <(echo "$1" |awk '{if(NR!=1) print $1}')
   local var
   for i in "${array[@]}"; do
     var+="${i}:"
@@ -381,11 +382,11 @@ kube::test::version::diff_assert() {
         return 1
   fi
 
-  sort ${original} > "${original}.sorted"
-  sort ${latest} > "${latest}.sorted"
+  sort "${original}" > "${original}.sorted"
+  sort "${latest}" > "${latest}.sorted"
 
   if [ "${comparator}" == "eq" ]; then
-    if [ "$(diff -iwB ${original}.sorted ${latest}.sorted)" == "" ] ; then
+    if [ "$(diff -iwB "${original}.sorted" "${latest}.sorted")" == "" ] ; then
         echo -n "${green}"
         echo "Successful: ${diff_msg}"
         echo -n "${reset}"
@@ -394,16 +395,16 @@ kube::test::version::diff_assert() {
         echo "${bold}${red}"
         echo "FAIL! ${diff_msg}"
         echo "  Expected: "
-        echo "$(cat ${original})"
+        cat "${original}"
         echo "  Got: "
-        echo "$(cat ${latest})"
+        cat "${latest}"
         echo "${reset}${red}"
         caller
         echo "${reset}"
         return 1
     fi
   else
-    if [ ! -z "$(diff -iwB ${original}.sorted ${latest}.sorted)" ] ; then
+    if [ -n "$(diff -iwB "${original}.sorted" "${latest}.sorted")" ] ; then
         echo -n "${green}"
         echo "Successful: ${diff_msg}"
         echo -n "${reset}"
@@ -412,9 +413,9 @@ kube::test::version::diff_assert() {
         echo "${bold}${red}"
         echo "FAIL! ${diff_msg}"
         echo "  Expected: "
-        echo "$(cat ${original})"
+        cat "${original}"
         echo "  Got: "
-        echo "$(cat ${latest})"
+        cat "${latest}"
         echo "${reset}${red}"
         caller
         echo "${reset}"
