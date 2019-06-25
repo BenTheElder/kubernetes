@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacyazureprovider
+
 /*
 Copyright 2018 The Kubernetes Authors.
 

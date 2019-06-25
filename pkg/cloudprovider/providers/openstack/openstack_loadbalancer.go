@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacyopenstackprovider
+
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -39,7 +42,7 @@ import (
 	"github.com/gophercloud/gophercloud/pagination"
 	"k8s.io/klog"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"

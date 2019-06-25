@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacyopenstackprovider
+
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -29,7 +32,7 @@ import (
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

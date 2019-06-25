@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacygceprovider
+
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -21,16 +24,17 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	cloudvolume "k8s.io/cloud-provider/volume"
 	"k8s.io/kubernetes/pkg/volume"
 	volumetest "k8s.io/kubernetes/pkg/volume/testing"
 
+	"strings"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"strings"
 )
 
 func TestGetDeviceName_Volume(t *testing.T) {

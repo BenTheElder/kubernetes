@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacyawsprovider
+
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -26,10 +29,10 @@ import (
 
 	"k8s.io/klog"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/cloud-provider"
+	cloudprovider "k8s.io/cloud-provider"
 	volumehelpers "k8s.io/cloud-provider/volume/helpers"
 	"k8s.io/kubernetes/pkg/util/mount"
 	"k8s.io/kubernetes/pkg/volume"

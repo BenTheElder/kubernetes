@@ -1,3 +1,5 @@
+// +build !nolegacyproviders
+// +build !nolegacyazureprovider
 // +build windows
 
 /*

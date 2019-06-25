@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacygceprovider
+
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -23,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	cloudprovider "k8s.io/cloud-provider"
 	cloudvolume "k8s.io/cloud-provider/volume"

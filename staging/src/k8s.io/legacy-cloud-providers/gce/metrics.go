@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacygceprovider
+
 /*
 Copyright 2014 The Kubernetes Authors.
 
