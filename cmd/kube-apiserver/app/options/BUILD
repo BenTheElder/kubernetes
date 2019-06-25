@@ -9,6 +9,7 @@ load(
 go_library(
     name = "go_default_library",
     srcs = [
+        "flags_legacygceprovider.go",
         "globalflags.go",
         "options.go",
         "validation.go",
