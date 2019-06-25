@@ -1,3 +1,6 @@
+// +build !nolegacyproviders
+// +build !nolegacyopenstackprovider
+
 /*
 Copyright 2016 The Kubernetes Authors.
 

@@ -1,3 +1,7 @@
+
+// +build !nolegacyproviders
+// +build !nolegacyvsphereprovider
+
 /*
 Copyright 2019 The Kubernetes Authors.
 

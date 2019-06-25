@@ -1,3 +1,6 @@
+
+// +build !nolegacyproviders
+// +build !nolegacyvsphereprovider
 // +build !windows,!linux
 
 /*
