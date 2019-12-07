@@ -10,7 +10,9 @@ jobs:
     steps:
     - name: Install Go
       run: |
-        choco install golang --version $env:GO_VERSION -y -vv
+        #choco install golang --version $env:GO_VERSION -y -vv
+        Invoke-Webrequest ("https://dl.google.com/go/go" + $env:GO_VERSION + ".windows-amd64.msi") -Outfile go.msi
+        ./go.msi
         [Environment]::SetEnvironmentVariable("PATH", ($env:PATH + ";C:\Go\bin"), "Machine")
         refreshenv
         go version
@@ -31,5 +33,5 @@ jobs:
       run: |
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
-        C:\Go\bin\gotestsum ./pkg/... ./cmd/...
+        C:\Go\bin\gotestsum -- ./pkg/... ./cmd/...
 
