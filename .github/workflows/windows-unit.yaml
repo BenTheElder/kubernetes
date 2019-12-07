@@ -10,9 +10,9 @@ jobs:
     steps:
     - name: Install Go
       run: |
-        #choco install golang --version $env:GO_VERSION -y -vv
-        Invoke-Webrequest ("https://dl.google.com/go/go" + $env:GO_VERSION + ".windows-amd64.msi") -Outfile go.msi
-        msiexec.exe /qn /i ./go.msi
+        choco install golang --version $env:GO_VERSION -y -vv
+        #Invoke-Webrequest ("https://dl.google.com/go/go" + $env:GO_VERSION + ".windows-amd64.msi") -Outfile go.msi
+        #msiexec.exe /qn /i ./go.msi
         [Environment]::SetEnvironmentVariable("PATH", ("C:\Go\bin;" + $env:PATH), "Machine")
         refreshenv
         go version
