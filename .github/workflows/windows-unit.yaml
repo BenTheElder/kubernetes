@@ -13,7 +13,7 @@ jobs:
         #choco install golang --version $env:GO_VERSION -y -vv
         Invoke-Webrequest ("https://dl.google.com/go/go" + $env:GO_VERSION + ".windows-amd64.msi") -Outfile go.msi
         ./go.msi
-        [Environment]::SetEnvironmentVariable("PATH", ($env:PATH + ";C:\Go\bin"), "Machine")
+        [Environment]::SetEnvironmentVariable("PATH", ("C:\Go\bin;" + $env:PATH), "Machine")
         refreshenv
         go version
     - uses: actions/checkout@v2-beta
@@ -34,4 +34,5 @@ jobs:
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
         C:\Go\bin\gotestsum -- ./pkg/... ./cmd/...
+        go list ./...
 
