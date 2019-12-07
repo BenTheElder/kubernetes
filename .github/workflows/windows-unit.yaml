@@ -1,0 +1,32 @@
+on: push
+jobs:
+  windows_unit_test:
+    name: Windows Unit Test
+    runs-on: windows-latest
+    env:
+      GO_VERSION: 1.13.4
+      GO111MODULE: "off"
+    steps:
+    - name: Install Go
+      run: |
+        Invoke-Webrequest ("https://dl.google.com/go/go" + $env:GO_VERSION + ".windows-amd64.msi") -Outfile go.msi
+        Start-Process ./go.msi
+        [Environment]::SetEnvironmentVariable("PATH", ($env:PATH + ";C:\go\bin"), "Machine")
+        go version
+    - uses: actions/checkout@v2-beta
+      name: Clone Repo
+      with:
+        path: ./src/k8s.io/kubernetes
+    - name: Install gotestsum
+      env:
+        GOPATH: ${{ runner.workspace }}
+      run: |
+        cd ./src/k8s.io/kubernetes
+        go build -o C:\go\bin\gotestsum ./vendor/gotest.tools/gotestsum
+    - name: Unit Test
+      env:
+        GOPATH: ${{ runner.workspace }}
+      run: |
+        cd ./src/k8s.io/kubernetes
+        gotestsum ./pkg/... ./cmd/...
+
