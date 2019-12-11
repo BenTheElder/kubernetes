@@ -16,10 +16,14 @@ jobs:
         [Environment]::SetEnvironmentVariable("PATH", ("C:\Go\bin;" + $env:PATH), "Machine")
         refreshenv
         go version
-    - uses: actions/checkout@v2-beta
-      name: Clone Repo
-      with:
-        path: ./src/k8s.io/kubernetes
+    #- uses: actions/checkout@v2-beta
+    #  name: Clone Repo
+    #  with:
+    #    path: ./src/k8s.io/kubernetes
+    - name: Clone Repo
+      run: |
+        New-Item -ItemType Directory -Force -Path ./src/k8s.io/kubernetes
+        git clone -c core.symlinks=true https://github.com/kubernetes/kubernetes.git
     - name: Install gotestsum
       #env:
       #  GOPATH: ${{ runner.workspace }}
