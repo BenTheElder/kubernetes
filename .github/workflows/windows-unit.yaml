@@ -8,6 +8,11 @@ jobs:
       GO111MODULE: "off"
       GOROOT: 
     steps:
+    - name: Clone Repo
+      run: |
+        New-Item -ItemType Directory -Force -Path ./src/k8s.io/kubernetes
+        cd ./src/k8s.io/kubernetes
+        git clone -c core.symlinks=true https://github.com/kubernetes/kubernetes.git
     - name: Install Go
       run: |
         choco install golang --version $env:GO_VERSION -y -vv
@@ -20,10 +25,6 @@ jobs:
     #  name: Clone Repo
     #  with:
     #    path: ./src/k8s.io/kubernetes
-    - name: Clone Repo
-      run: |
-        New-Item -ItemType Directory -Force -Path ./src/k8s.io/kubernetes
-        git clone -c core.symlinks=true https://github.com/kubernetes/kubernetes.git
     - name: Install gotestsum
       #env:
       #  GOPATH: ${{ runner.workspace }}
