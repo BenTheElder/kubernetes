@@ -38,5 +38,6 @@ jobs:
       run: |
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
+        ./_output/gotestsum --help
         ./_output/gotestsum -- ./pkg/... ./cmd/...
 
