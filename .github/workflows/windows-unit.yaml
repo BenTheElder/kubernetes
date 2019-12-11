@@ -10,8 +10,8 @@ jobs:
     steps:
     - name: Clone Repo
       run: |
-        New-Item -ItemType Directory -Force -Path ./src/k8s.io/kubernetes
-        cd ./src/k8s.io/kubernetes
+        New-Item -ItemType Directory -Force -Path ./src/k8s.io/
+        cd ./src/k8s.io/
         git clone -c core.symlinks=true https://github.com/kubernetes/kubernetes.git
     - name: Install Go
       run: |
