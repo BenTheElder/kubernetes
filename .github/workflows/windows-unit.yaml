@@ -4,39 +4,39 @@ jobs:
     name: Windows Unit Test
     runs-on: windows-latest
     env:
-      GO_VERSION: 1.13.4
       GO111MODULE: "off"
-      GOROOT: 
     steps:
+    # Windows doesn't have symlinks on by default.
+    # We need these for staging to work.
+    # This must be enabled BEFORE cloning.
+    # TLDR historically symlinks were admin-only on windows, 
     - name: Enable git Symlinks
       run: |
         git config --global core.symlinks true
+    # actually checkout the repo, GitHub actions does not by default
     - uses: actions/checkout@v2-beta
       name: Clone Repo
       with:
         path: ./src/k8s.io/kubernetes
-    #- name: Clone Repo
-    #  run: |
-    #    New-Item -ItemType Directory -Force -Path .\src\k8s.io
-    #    cd ./src/k8s.io/
-    #    git clone -c core.symlinks=true https://github.com/kubernetes/kubernetes.git
+    # GitHub actions ship with some arbitrary Go version
     - name: Install Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13.4
+    # Debug go version for sanity
+    - name: Verify Go
       run: |
-        choco install golang --version $env:GO_VERSION -y -vv
-        #Invoke-Webrequest ("https://dl.google.com/go/go" + $env:GO_VERSION + ".windows-amd64.msi") -Outfile go.msi
-        #msiexec.exe /qn /i ./go.msi
-        [Environment]::SetEnvironmentVariable("PATH", ("C:\Go\bin;" + $env:PATH), "Machine")
-        refreshenv
         go version
-    - name: Install gotestsum
+    # install gotestsum so we can get nice output
+    - name: Build gotestsum
       run: |
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
-        go build -o C:\Go\bin\gotestsum ./vendor/gotest.tools/gotestsum
+        go build -o ./_output/gotestsum ./vendor/gotest.tools/gotestsum
+    # actually run unit tests
     - name: Unit Test
       run: |
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
-        C:\Go\bin\gotestsum -- ./pkg/... ./cmd/...
-        go test ./pkg/... ./cmd/...
+        ./_output/gotestsum -- ./pkg/... ./cmd/...
 
