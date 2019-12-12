@@ -33,11 +33,12 @@ jobs:
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
         go build -o ./_output/gotestsum ./vendor/gotest.tools/gotestsum
+        ls ./_output/
     # actually run unit tests
     - name: Unit Test
       run: |
         $env:GOPATH = (Get-Location)
         cd ./src/k8s.io/kubernetes
-        ./_output/gotestsum --help
-        ./_output/gotestsum -- ./pkg/... ./cmd/...
+        ./_output/gotestsum.exe --help
+        ./_output/gotestsum.exe -- ./pkg/... ./cmd/...
 
