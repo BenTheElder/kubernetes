@@ -61,7 +61,9 @@ all: all-container
 all-push: all-push-images push-manifest
 
 push-manifest: manifest-tool
-	manifest-tool push from-args --platforms $(call join_platforms,$(ALL_ARCH)) --template $(IMAGE)-ARCH:$(TAG) --target $(IMAGE):$(TAG)
+	# NOTE: this is written like this to echo the command without the --password
+	$(info manifest-tool --username=oauth2accesstoken --password=$$(shell gcloud auth print-access-token) push from-args --platforms $(call join_platforms,$(ALL_ARCH)) --template $(IMAGE)-ARCH:$(TAG) --target $(IMAGE):$(TAG))
+	@manifest-tool --username=oauth2accesstoken --password=$(shell gcloud auth print-access-token) push from-args --platforms $(call join_platforms,$(ALL_ARCH)) --template $(IMAGE)-ARCH:$(TAG) --target $(IMAGE):$(TAG)
 
 sub-container-%:
 	$(MAKE) ARCH=$* container
