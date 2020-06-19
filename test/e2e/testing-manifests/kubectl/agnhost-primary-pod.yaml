@@ -3,11 +3,11 @@ kind: Pod
 metadata:
   labels:
     name: agnhost
-    role: master
-  name: agnhost-master
+    role: primary
+  name: agnhost-primary
 spec:
   containers:
-    - name: master
+    - name: primary
       image: gcr.io/kubernetes-e2e-test-images/agnhost:1.0
       env:
         - name: MASTER
