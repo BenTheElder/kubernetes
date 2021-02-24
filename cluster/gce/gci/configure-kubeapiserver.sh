@@ -114,8 +114,8 @@ function start-kube-apiserver {
     params+=" --service-account-key-file=${SERVICEACCOUNT_CERT_PATH}"
   fi
   local known_tokens_file='/etc/srv/kubernetes/known_tokens.csv'
-  if [[ -f "${known_tokens_file}" ]]; then
-    chown "${KUBE_API_SERVER_RUNASUSER:-0}":"${KUBE_API_SERVER_RUNASGROUP:-0}" "${known_tokens_file}"
+  if [[ -f "${known_tokens_file}" && -n "${KUBE_API_SERVER_RUNASUSER:-}" && -n "${KUBE_API_SERVER_RUNASGROUP:-}" ]]; then
+    chown "${KUBE_API_SERVER_RUNASUSER}":"${KUBE_API_SERVER_RUNASGROUP}" "${known_tokens_file}"
   fi
   params+=" --token-auth-file=${known_tokens_file}"
 
