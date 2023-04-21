@@ -24,8 +24,7 @@ set -o pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 source "${KUBE_ROOT}/hack/lib/init.sh"
 
-_tmp="${KUBE_ROOT}/_tmp_build_tag_files"
-mkdir -p "${_tmp}"
+_tmp="$(mktemp -d)"
 
 function cleanup {
   # ensure $_tmp dir is writable before attempting to recursively rm
@@ -34,7 +33,6 @@ function cleanup {
   rm -rf "${_tmp:?}"
   rm -f 'tempfile'
 }
-
 trap cleanup EXIT
 
 kube::golang::verify_go_version
