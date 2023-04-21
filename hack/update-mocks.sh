@@ -30,6 +30,9 @@ _tmp="${KUBE_ROOT}/_tmp_build_tag_files"
 mkdir -p "${_tmp}"
 
 function cleanup {
+  # ensure $_tmp dir is writable before attempting to recursively rm
+  # see: https://github.com/kubernetes/kubernetes/issues/117272
+  chmod -R +w "${_tmp:?}"
   rm -rf "${_tmp:?}"
   rm -f 'tempfile'
 }
