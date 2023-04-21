@@ -76,7 +76,7 @@ git_find -z ':(glob)**/*.go' | while read -r -d $'\0' file; do
   test -f "$file" || continue
   grep -q "//go:generate mockgen" "$file" || continue
 
-  temp_file_name="$(kube::realpath "$(mktemp -t "$(basename "$0").XXXXXX")")"
+  temp_file_name="$(TMPDIR="${_tmp}" mktemp)"
 
   # search for build tag used in file
   build_tag_string=$(grep -o '+build.*$' "$file") || true
