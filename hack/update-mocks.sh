@@ -30,8 +30,8 @@ _tmp="${KUBE_ROOT}/_tmp_build_tag_files"
 mkdir -p "${_tmp}"
 
 function cleanup {
-    rm -rf "$_tmp"
-    rm -f "tempfile"
+    rm -rf "${_tmp:?}"
+    rm -f 'tempfile'
 }
 
 trap cleanup EXIT
