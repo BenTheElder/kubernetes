@@ -23,8 +23,6 @@ set -o pipefail
 
 KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 source "${KUBE_ROOT}/hack/lib/init.sh"
-# Explicitly opt into go modules, even though we're inside a GOPATH directory
-export GO111MODULE=on
 
 _tmp="${KUBE_ROOT}/_tmp_build_tag_files"
 mkdir -p "${_tmp}"
@@ -44,7 +42,7 @@ kube::golang::setup_env
 
 echo 'installing mockgen'
 pushd "${KUBE_ROOT}/hack/tools" >/dev/null
-  go install github.com/golang/mock/mockgen
+  GO111MODULE=on go install github.com/golang/mock/mockgen
 popd >/dev/null
 
 function git_find() {
