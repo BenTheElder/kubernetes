@@ -24,6 +24,8 @@ set -o pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 source "${KUBE_ROOT}/hack/lib/init.sh"
 
+set -x;
+
 _tmp="$(mktemp -d)"
 
 function cleanup {
@@ -37,6 +39,7 @@ trap cleanup EXIT
 
 kube::golang::verify_go_version
 kube::golang::setup_env
+export GO111MODULE=on
 
 echo 'installing mockgen'
 pushd "${KUBE_ROOT}/hack/tools" >/dev/null
