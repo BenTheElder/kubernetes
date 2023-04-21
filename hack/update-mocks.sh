@@ -30,8 +30,8 @@ _tmp="${KUBE_ROOT}/_tmp_build_tag_files"
 mkdir -p "${_tmp}"
 
 function cleanup {
-    rm -rf "${_tmp:?}"
-    rm -f 'tempfile'
+  rm -rf "${_tmp:?}"
+  rm -f 'tempfile'
 }
 
 trap cleanup EXIT
@@ -45,16 +45,16 @@ pushd "${KUBE_ROOT}/hack/tools" >/dev/null
 popd >/dev/null
 
 function git_find() {
-    # Similar to find but faster and easier to understand.  We want to include
-    # modified and untracked files because this might be running against code
-    # which is not tracked by git yet.
-    git ls-files -cmo --exclude-standard \
-        ':!:vendor/*'        `# catches vendor/...` \
-        ':!:*/vendor/*'      `# catches any subdir/vendor/...` \
-        ':!:third_party/*'   `# catches third_party/...` \
-        ':!:*/third_party/*' `# catches third_party/...` \
-        ':!:*/testdata/*' \
-        "$@"
+  # Similar to find but faster and easier to understand.  We want to include
+  # modified and untracked files because this might be running against code
+  # which is not tracked by git yet.
+  git ls-files -cmo --exclude-standard \
+      ':!:vendor/*'        `# catches vendor/...` \
+      ':!:*/vendor/*'      `# catches any subdir/vendor/...` \
+      ':!:third_party/*'   `# catches third_party/...` \
+      ':!:*/third_party/*' `# catches third_party/...` \
+      ':!:*/testdata/*' \
+      "$@"
 }
 
 cd "${KUBE_ROOT}"
