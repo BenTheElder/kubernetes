@@ -29,9 +29,7 @@ _tmp="$(mktemp -d)"
 function cleanup {
   # ensure $_tmp dir is writable before attempting to recursively rm
   # see: https://github.com/kubernetes/kubernetes/issues/117272
-  set -x;
   chmod -R +w "${_tmp:?}"
-  exit
   rm -rf "${_tmp:?}"
   rm -f 'tempfile'
 }
