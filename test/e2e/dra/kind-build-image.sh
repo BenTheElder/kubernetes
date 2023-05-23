@@ -25,7 +25,12 @@ set -o pipefail
 tag="$1"
 
 # Created manually in the kind repo by bentheelder with
+# Ensures containerd is v1.7.X before kind switches by default
 # make -C images/base push EXTRA_BUILD_OPT=--build-arg=CONTAINERD_VERSION=v1.7.1 TAG=$(date +v%Y%m%d)-$(git describe --always --dirty)-containerd_v1.7.1
-base_image="gcr.io/k8s-staging-kind/base:v20230515-01914134-containerd_v1.7.1@sha256:468fc430a6848884b786c5cd2f1c03e7a0977f04fb129a2cda2a19ec986ddacb"
+extra_flags=()
+# TODO: this will be unnecessary after we've updated kind to latest again
+if [[ $(kind version) ~= | ^kind[[:space:]]v0.19.0[[:space:]] ]]; then
+    extra_flags += (--base-image=gcr.io/k8s-staging-kind/base:v20230515-01914134-containerd_v1.7.1@sha256:468fc430a6848884b786c5cd2f1c03e7a0977f04fb129a2cda2a19ec986ddacb)
+fi
 
-kind build node-image --base-image "$base_image"  --image "$tag" "$(pwd)"
+kind build node-image "${extra_flags[@]}" --image "$tag" "$(pwd)"
