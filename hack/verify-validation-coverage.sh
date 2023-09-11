@@ -3,4 +3,4 @@
 source hack/lib/init.sh
 kube::golang::setup_env
 
-go run hack/coverage/check_coverage.go
+time go run ./hack/validation-coverage ./api/openapi-spec/v3/ ./pkg/apis
