@@ -65,26 +65,13 @@ while getopts "r:t:" o; do
 done
 shift $((OPTIND - 1))
 
+kube::golang::setup_env
+
 # Check specific directory or everything.
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-    # This lists all entries in the go.work file as absolute directory paths.
-    kube::util::read-array targets < <(kube::golang::workspace_all)
+    kube::util::read-array targets < <(kube::golang::workspace_module_dirs)
 fi
-
-# Sanitize paths:
-# - We need relative paths because we will invoke apidiff in
-#   different work trees.
-# - Must start with a dot.
-for (( i=0; i<${#targets[@]}; i++ )); do
-    d="${targets[i]}"
-    d=$(realpath -s --relative-to="$(pwd)" "${d}")
-    if [ "${d}" != "." ]; then
-        # sub-directories have to have a leading dot.
-        d="./${d}"
-    fi
-    targets[i]="${d}"
-done
 
 # Must be a something that git can resolve to a commit.
 # "git rev-parse --verify" checks that and prints a detailed
@@ -115,7 +102,6 @@ describe () {
 }
 echo "Checking $(if [ -n "${target}" ]; then describe "${target}"; else echo "current working tree"; fi) for API changes since $(describe "${base}")."
 
-kube::golang::setup_env
 kube::util::ensure-temp-dir
 
 # Install apidiff and make sure it's found.

@@ -984,3 +984,8 @@ kube::golang::workspace_all() {
   kube::util::require-jq
   go work edit -json | jq -r '.Use[].DiskPath + "/..."'
 }
+
+kube::golang::workspace_module_dirs() {
+  kube::util::require-jq
+  go work edit -json | jq -r '.Use[].DiskPath'
+}
