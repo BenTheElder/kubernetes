@@ -478,34 +478,7 @@ var _ = SIGDescribe("Kubectl client", func() {
 			defer testSrv.Close()
 			proxyAddr := testSrv.URL
 
-			// test --proxy-url
-			ginkgo.By("Running kubectl via an HTTP proxy using --proxy-url")
-			// TODO: create a tempdir, generate a kubeconfig into it, set proxy-url
-			// configure client to use temp kubeconfig
-			tmpDir := ginkgo.GinkgoT().TempDir()
-			tmpConfig := filepath.Join(tmpDir, "kubeconfig")
-			// get current kubeconfig
-			out, err := exec.Command("kubectl", "config", "view", "--flatten").Output()
-			framework.ExpectNoError(err, "Error getting current kubeconfig")
-			err = os.WriteFile(tmpConfig, out, 0600)
-			framework.ExpectNoError(err, "Error writing temp kubeconfig")
-			err = exec.Command("kubectl", "--kubeconfig="+tmpConfig, "config", "current-context", "set", "--proxy-url", proxyAddr).Run()
-			framework.ExpectNoError(err, "Error setting current-context")
-
-			proxyLogs.Reset()
-			output := e2ekubectl.NewKubectlCommand(ns, "exec", podRunningTimeoutArg, simplePodName, "--kubeconfig="+tmpConfig, "--", "echo", "running", "in", "container").ExecOrDie(ns)
-			// Verify we got the normal output captured by the exec server
-			expectedExecOutput := "running in container\n"
-			if output != expectedExecOutput {
-				framework.Failf("Unexpected kubectl exec output. Wanted %q, got  %q", expectedExecOutput, output)
-			}
-			// Verify the proxy server logs saw the connection
-			expectedProxyLog := fmt.Sprintf("Accepting CONNECT to %s", strings.TrimSuffix(strings.TrimPrefix(testContextHost, "https://"), "/api"))
-
-			proxyLog := proxyLogs.String()
-			if !strings.Contains(proxyLog, expectedProxyLog) {
-				framework.Failf("Missing expected log result on proxy server for %s. Expected: %q, got %q", "--proxy-url", expectedProxyLog, proxyLog)
-			}
+			panic(framework.TestContext.Host)
 
 			// test proxy env
 			for _, proxyVar := range []string{"https_proxy", "HTTPS_PROXY"} {
