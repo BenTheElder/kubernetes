@@ -478,6 +478,24 @@ var _ = SIGDescribe("Kubectl client", func() {
 			defer testSrv.Close()
 			proxyAddr := testSrv.URL
 
+			// test --proxy-url
+			ginkgo.By("Running kubectl via an HTTP proxy using --proxy-url")
+			proxyLogs.Reset()
+			output := e2ekubectl.NewKubectlCommand(ns, "exec", podRunningTimeoutArg, simplePodName, "--proxy-url="+proxyAddr, "--", "echo", "running", "in", "container").ExecOrDie(ns)
+			// Verify we got the normal output captured by the exec server
+			expectedExecOutput := "running in container\n"
+			if output != expectedExecOutput {
+				framework.Failf("Unexpected kubectl exec output. Wanted %q, got  %q", expectedExecOutput, output)
+			}
+			// Verify the proxy server logs saw the connection
+			expectedProxyLog := fmt.Sprintf("Accepting CONNECT to %s", strings.TrimSuffix(strings.TrimPrefix(testContextHost, "https://"), "/api"))
+
+			proxyLog := proxyLogs.String()
+			if !strings.Contains(proxyLog, expectedProxyLog) {
+				framework.Failf("Missing expected log result on proxy server for %s. Expected: %q, got %q", "--proxy-url", expectedProxyLog, proxyLog)
+			}
+
+			// test proxy env
 			for _, proxyVar := range []string{"https_proxy", "HTTPS_PROXY"} {
 				proxyLogs.Reset()
 				ginkgo.By("Running kubectl via an HTTP proxy using " + proxyVar)
