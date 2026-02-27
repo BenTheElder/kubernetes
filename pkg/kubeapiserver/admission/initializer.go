@@ -17,22 +17,66 @@ limitations under the License.
 package admission
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/admission/initializer"
+	policyloader "k8s.io/kubernetes/pkg/admission/plugin/policy/manifest/loader"
+	webhookloader "k8s.io/kubernetes/pkg/admission/plugin/webhook/manifest/loader"
 )
 
 // TODO add a `WantsToRun` which takes a stopCh.  Might make it generic.
 
 // PluginInitializer is used for initialization of the Kubernetes specific admission plugins.
 type PluginInitializer struct {
+	loaders *initializer.ManifestLoaders
 }
 
 var _ admission.PluginInitializer = &PluginInitializer{}
 
 // NewPluginInitializer constructs new instance of PluginInitializer
 func NewPluginInitializer() *PluginInitializer {
-	return &PluginInitializer{}
+	return &PluginInitializer{
+		loaders: newManifestLoaders(),
+	}
 }
 
 // Initialize checks the initialization interfaces implemented by each plugin
 // and provide the appropriate initialization data
-func (i *PluginInitializer) Initialize(plugin admission.Interface) {}
+func (i *PluginInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(initializer.WantsManifestLoaders); ok {
+		wants.SetManifestLoaders(i.loaders)
+	}
+}
+
+func newManifestLoaders() *initializer.ManifestLoaders {
+	return &initializer.ManifestLoaders{
+		LoadValidatingWebhookManifests: func(dir string) ([]*admissionregistrationv1.ValidatingWebhookConfiguration, []byte, error) {
+			result, err := webhookloader.LoadValidatingManifests(dir)
+			if err != nil {
+				return nil, nil, err
+			}
+			return result.Configurations, result.RawData, nil
+		},
+		LoadMutatingWebhookManifests: func(dir string) ([]*admissionregistrationv1.MutatingWebhookConfiguration, []byte, error) {
+			result, err := webhookloader.LoadMutatingManifests(dir)
+			if err != nil {
+				return nil, nil, err
+			}
+			return result.Configurations, result.RawData, nil
+		},
+		LoadPolicyManifests: func(dir string) ([]*admissionregistrationv1.ValidatingAdmissionPolicy, []*admissionregistrationv1.ValidatingAdmissionPolicyBinding, []byte, error) {
+			manifests, err := policyloader.LoadManifestsFromDirectory(dir)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			return manifests.Policies, manifests.Bindings, manifests.RawData, nil
+		},
+		LoadMutatingPolicyManifests: func(dir string) ([]*admissionregistrationv1.MutatingAdmissionPolicy, []*admissionregistrationv1.MutatingAdmissionPolicyBinding, []byte, error) {
+			manifests, err := policyloader.LoadMutatingManifestsFromDirectory(dir)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			return manifests.Policies, manifests.Bindings, manifests.RawData, nil
+		},
+	}
+}

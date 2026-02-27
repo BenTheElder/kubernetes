@@ -157,7 +157,10 @@ func (a *AdmissionOptions) ApplyTo(
 	discoveryRESTMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
 	genericInitializer := initializer.New(kubeClient, dynamicClient, informers, c.Authorization.Authorizer, features,
 		effectiveVersion, c.DrainedNotify(), discoveryRESTMapper)
-	initializersChain := admission.PluginInitializers{genericInitializer}
+	// Place the API server ID initializer before the generic initializer so that
+	// SetAPIServerID is called before SetExternalKubeInformerFactory, ensuring the
+	// ID is available when static manifest sources are created.
+	initializersChain := admission.PluginInitializers{initializer.NewAPIServerIDInitializer(c.APIServerID), genericInitializer}
 	initializersChain = append(initializersChain, pluginInitializers...)
 
 	admissionPostStartHook := func(hookContext server.PostStartHookContext) error {
