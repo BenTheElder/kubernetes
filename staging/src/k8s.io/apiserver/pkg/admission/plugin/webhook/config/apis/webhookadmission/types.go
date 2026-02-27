@@ -26,4 +26,12 @@ type WebhookAdmission struct {
 
 	// KubeConfigFile is the path to the kubeconfig file.
 	KubeConfigFile string
+
+	// StaticManifestsDir is the path to a directory containing static webhook
+	// configurations to be loaded at startup. The directory should contain
+	// YAML or JSON files with ValidatingWebhookConfiguration or
+	// MutatingWebhookConfiguration resources. This field is only used when
+	// the ManifestBasedAdmissionControlConfig feature gate is enabled.
+	// +optional
+	StaticManifestsDir string
 }

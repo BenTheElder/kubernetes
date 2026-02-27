@@ -19,6 +19,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"os"
 	"path"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/config/apis/webhookadmission"
 	v1 "k8s.io/apiserver/pkg/admission/plugin/webhook/config/apis/webhookadmission/v1"
+	"k8s.io/apiserver/pkg/features"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 )
 
 var (
@@ -39,30 +42,56 @@ func init() {
 	utilruntime.Must(v1.AddToScheme(scheme))
 }
 
-// LoadConfig extract the KubeConfigFile from configFile
-func LoadConfig(configFile io.Reader) (string, error) {
-	var kubeconfigFile string
+// WebhookAdmissionConfig holds the configuration loaded from the config file.
+type WebhookAdmissionConfig struct {
+	// KubeConfigFile is the path to the kubeconfig file.
+	KubeConfigFile string
+	// StaticManifestsDir is the path to the directory containing static webhook manifests.
+	StaticManifestsDir string
+}
+
+// LoadConfig extracts the webhook admission configuration from configFile.
+func LoadConfig(configFile io.Reader) (WebhookAdmissionConfig, error) {
+	var cfg WebhookAdmissionConfig
 	if configFile != nil {
 		// we have a config so parse it.
 		data, err := io.ReadAll(configFile)
 		if err != nil {
-			return "", err
+			return cfg, err
 		}
 		decoder := codecs.UniversalDecoder()
 		decodedObj, err := runtime.Decode(decoder, data)
 		if err != nil {
-			return "", err
+			return cfg, err
 		}
 		config, ok := decodedObj.(*webhookadmission.WebhookAdmission)
 		if !ok {
-			return "", fmt.Errorf("unexpected type: %T", decodedObj)
+			return cfg, fmt.Errorf("unexpected type: %T", decodedObj)
 		}
 
-		if !path.IsAbs(config.KubeConfigFile) {
-			return "", field.Invalid(field.NewPath("kubeConfigFile"), config.KubeConfigFile, "must be an absolute file path")
+		// KubeConfigFile may be empty when only staticManifestsDir is configured.
+		if len(config.KubeConfigFile) > 0 && !path.IsAbs(config.KubeConfigFile) {
+			return cfg, field.Invalid(field.NewPath("kubeConfigFile"), config.KubeConfigFile, "must be an absolute file path")
 		}
 
-		kubeconfigFile = config.KubeConfigFile
+		if len(config.StaticManifestsDir) > 0 {
+			if !utilfeature.DefaultFeatureGate.Enabled(features.ManifestBasedAdmissionControlConfig) {
+				return cfg, field.Forbidden(field.NewPath("staticManifestsDir"), "staticManifestsDir requires the ManifestBasedAdmissionControlConfig feature gate to be enabled")
+			}
+			if !path.IsAbs(config.StaticManifestsDir) {
+				return cfg, field.Invalid(field.NewPath("staticManifestsDir"), config.StaticManifestsDir, "must be an absolute file path")
+			}
+			info, err := os.Stat(config.StaticManifestsDir)
+			if err != nil {
+				return cfg, field.Invalid(field.NewPath("staticManifestsDir"), config.StaticManifestsDir, fmt.Sprintf("unable to read: %v", err))
+			}
+			if !info.IsDir() {
+				return cfg, field.Invalid(field.NewPath("staticManifestsDir"), config.StaticManifestsDir, "must be a directory")
+			}
+		}
+
+		cfg.KubeConfigFile = config.KubeConfigFile
+		cfg.StaticManifestsDir = config.StaticManifestsDir
 	}
-	return kubeconfigFile, nil
+	return cfg, nil
 }
