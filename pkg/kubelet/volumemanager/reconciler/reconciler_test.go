@@ -2065,6 +2065,27 @@ func waitForDetach(
 	}
 }
 
+func waitForOperationFinish(
+	t *testing.T,
+	volumeName v1.UniqueVolumeName,
+	podName types.UniquePodName,
+	oe operationexecutor.OperationExecutor) {
+	err := retryWithExponentialBackOff(
+		testOperationBackOffDuration,
+		func() (bool, error) {
+			if oe.IsOperationPending(volumeName, podName, "" /* nodeName */) {
+				return false, nil
+			}
+
+			return true, nil
+		},
+	)
+
+	if err != nil {
+		t.Fatalf("Timed out waiting for operation for volume %q and pod %q to finish.", volumeName, podName)
+	}
+}
+
 func retryWithExponentialBackOff(initialDuration time.Duration, fn wait.ConditionFunc) error {
 	backoff := wait.Backoff{
 		Duration: initialDuration,
@@ -2592,6 +2613,8 @@ func TestReconstructedVolumeShouldUnmountSucceedAfterSetupFailed(t *testing.T) {
 	dsw.DeletePodFromVolume(podName, generatedVolumeName)
 	// Act second reconcile to trigger unmount reconstructed volume after removed pod from volume
 	reconciler.reconcile(ctx)
+	// Wait for the unmount operation to finish
+	waitForOperationFinish(t, generatedVolumeName, podName, oex)
 
 	// assert volume unmount succeed
 	waitForUnmount(t, generatedVolumeName, podName, asw)
