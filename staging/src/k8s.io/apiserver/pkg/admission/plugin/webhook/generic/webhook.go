@@ -197,7 +197,10 @@ func (a *Webhook) ValidateInitialization() error {
 	}
 
 	// Check if static manifests are configured and feature gate is enabled
-	if len(a.staticManifestsDir) > 0 && utilfeature.DefaultFeatureGate.Enabled(features.ManifestBasedAdmissionControlConfig) {
+	if len(a.staticManifestsDir) > 0 {
+		if !utilfeature.DefaultFeatureGate.Enabled(features.ManifestBasedAdmissionControlConfig) {
+			return fmt.Errorf("static manifests are configured in %q but featuregate is not enabled", a.staticManifestsDir)
+		}
 		if a.staticSourceFactory == nil {
 			return fmt.Errorf("static webhook manifests configured in %q but no static source factory is set", a.staticManifestsDir)
 		}
