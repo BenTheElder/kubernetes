@@ -131,6 +131,16 @@ staticManifestsDir: ` + validDir + `
 `,
 			expectStaticManifestsDir: validDir,
 		},
+		{
+			name: "unknown field",
+			input: `
+kind: WebhookAdmissionConfiguration
+apiVersion: apiserver.config.k8s.io/v1
+kubeConfigFile: /foo
+unknownField: bar
+`,
+			expectErr: `unknown field "unknownField"`,
+		},
 	}
 
 	for _, tc := range testcases {
