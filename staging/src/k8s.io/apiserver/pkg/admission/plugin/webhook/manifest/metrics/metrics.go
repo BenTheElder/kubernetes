@@ -30,7 +30,7 @@ import (
 
 const (
 	namespace = "apiserver"
-	subsystem = "admission_manifest_config"
+	subsystem = "manifest_admission_config_controller"
 )
 
 var (
