@@ -110,6 +110,15 @@ staticManifestsDir: ` + notADirFile + `
 			enableFeatureGate: ptr.To(true),
 			expectErr:         "must be a directory",
 		},
+		{
+			name: "unknown field",
+			input: `
+kind: AdmissionPolicyConfiguration
+apiVersion: apiserver.config.k8s.io/v1
+unknownField: bar
+`,
+			expectErr: `unknown field "unknownField"`,
+		},
 	}
 
 	for _, tc := range testcases {
