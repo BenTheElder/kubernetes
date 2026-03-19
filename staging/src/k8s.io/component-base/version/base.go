@@ -28,11 +28,6 @@ package version
 // in-tree values are dummy values used for "git archive", which also
 // works for GitHub tar downloads.
 var (
-	// TODO: Deprecate gitMajor and gitMinor, use only gitVersion
-	// instead. First step in deprecation, keep the fields but make
-	// them irrelevant. (Next we'll take it out, which may muck with
-	// scripts consuming the kubectl version output - but most of
-	// these should be looking at gitVersion already anyways.)
 	gitMajor string // major version, always numeric
 	gitMinor string // minor version, numeric possibly followed by "+"
 
@@ -56,9 +51,7 @@ var (
 	buildDate = "1970-01-01T00:00:00Z" // build date in ISO8601 format, output of $(date -u +'%Y-%m-%dT%H:%M:%SZ')
 )
 
-const (
-	// DefaultKubeBinaryVersion is the hard coded k8 binary version based on the latest K8s release.
-	// It is supposed to be consistent with gitMajor and gitMinor, except for local tests, where gitMajor and gitMinor are "".
-	// Should update for each minor release!
-	DefaultKubeBinaryVersion = "1.36"
+var (
+	// this is automatically set in tests by testing_fallback.go
+	DefaultKubeBinaryVersion = gitMajor + "." + gitMinor
 )
