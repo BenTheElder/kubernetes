@@ -874,6 +874,7 @@ func (s podFastDeleteScenario) Pod(worker, attempt int) *v1.Pod {
 								v1.ResourceMemory: resource.MustParse("10Mi"),
 							},
 						},
+						TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 					},
 				},
 				Containers: []v1.Container{
@@ -889,6 +890,7 @@ func (s podFastDeleteScenario) Pod(worker, attempt int) *v1.Pod {
 								v1.ResourceMemory: resource.MustParse("10Mi"),
 							},
 						},
+						TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 					},
 				},
 			},
