@@ -210,7 +210,7 @@ var _ = SIGDescribe("Pods Extended", func() {
 		ginkgo.It("should never report success for a pending container", func(ctx context.Context) {
 			ginkgo.By("creating pods that should always exit 1 and terminating the pod after a random delay")
 			createAndTestPodRepeatedly(ctx,
-				3, 15,
+				5, 50,
 				podFastDeleteScenario{client: podClient.PodInterface, delayMs: 2000},
 				podClient.PodInterface,
 			)
@@ -218,7 +218,7 @@ var _ = SIGDescribe("Pods Extended", func() {
 		ginkgo.It("should never report container start when an init container fails", func(ctx context.Context) {
 			ginkgo.By("creating pods with an init container that always exit 1 and terminating the pod after a random delay")
 			createAndTestPodRepeatedly(ctx,
-				3, 15,
+				5, 50,
 				podFastDeleteScenario{client: podClient.PodInterface, delayMs: 2000, initContainer: true},
 				podClient.PodInterface,
 			)
