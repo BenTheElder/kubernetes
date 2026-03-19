@@ -827,10 +827,6 @@ type podFastDeleteScenario struct {
 	initContainer bool
 }
 
-func (s podFastDeleteScenario) Verifier(pod *v1.Pod) podScenarioVerifier {
-	return &podStartVerifier{}
-}
-
 func (s podFastDeleteScenario) IsLastEvent(event watch.Event) bool {
 	if event.Type == watch.Deleted {
 		return true
@@ -840,9 +836,9 @@ func (s podFastDeleteScenario) IsLastEvent(event watch.Event) bool {
 
 func (s podFastDeleteScenario) Action(ctx context.Context, pod *v1.Pod) (podScenarioVerifier, string, error) {
 	t := time.Duration(rand.Intn(s.delayMs)) * time.Millisecond
-	scenario := fmt.Sprintf("t=%s", t)
+	scenario := fmt.Sprintf("t=%s", t.String())
 	time.Sleep(t)
-	return &podStartVerifier{pod: pod}, scenario, s.client.Delete(ctx, pod.Name, metav1.DeleteOptions{})
+	return &podStartVerifier{pod: pod, scenario: scenario}, scenario, s.client.Delete(ctx, pod.Name, metav1.DeleteOptions{})
 }
 
 func (s podFastDeleteScenario) Pod(worker, attempt int) *v1.Pod {
@@ -930,6 +926,7 @@ func (s podFastDeleteScenario) Pod(worker, attempt int) *v1.Pod {
 // transitions. It assumes one container running to completion.
 type podStartVerifier struct {
 	pod                  *v1.Pod
+	scenario             string
 	hasInitContainers    bool
 	hasContainers        bool
 	hasTerminated        bool
@@ -955,50 +952,50 @@ func (v *podStartVerifier) Verify(event watch.Event) error {
 	if len(pod.Spec.InitContainers) > 0 {
 		if len(pod.Status.InitContainerStatuses) == 0 {
 			if v.hasInitContainers {
-				return fmt.Errorf("pod %s on node %s had incorrect init containers: %#v", pod.Name, pod.Spec.NodeName, pod.Status.InitContainerStatuses)
+				return fmt.Errorf("pod %s on node %s %s had incorrect init containers: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status.InitContainerStatuses)
 			}
 			return nil
 		}
 		v.hasInitContainers = true
 		if len(pod.Status.InitContainerStatuses) != 1 {
-			return fmt.Errorf("pod %s on node %s had incorrect init containers: %#v", pod.Name, pod.Spec.NodeName, pod.Status.InitContainerStatuses)
+			return fmt.Errorf("pod %s on node %s %s had incorrect init containers: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status.InitContainerStatuses)
 		}
 
 	} else {
 		if len(pod.Status.InitContainerStatuses) != 0 {
-			return fmt.Errorf("pod %s on node %s had incorrect init containers: %#v", pod.Name, pod.Spec.NodeName, pod.Status.InitContainerStatuses)
+			return fmt.Errorf("pod %s on node %s %s had incorrect init containers: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status.InitContainerStatuses)
 		}
 	}
 
 	if len(pod.Status.ContainerStatuses) == 0 {
 		if v.hasContainers {
-			return fmt.Errorf("pod %s on node %s had incorrect containers: %#v", pod.Name, pod.Spec.NodeName, pod.Status.ContainerStatuses)
+			return fmt.Errorf("pod %s on node %s %s had incorrect containers: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status.ContainerStatuses)
 		}
 		return nil
 	}
 	v.hasContainers = true
 	if len(pod.Status.ContainerStatuses) != 1 {
-		return fmt.Errorf("pod %s on node %s had incorrect containers: %#v", pod.Name, pod.Spec.NodeName, pod.Status.ContainerStatuses)
+		return fmt.Errorf("pod %s on node %s %s had incorrect containers: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status.ContainerStatuses)
 	}
 
 	if status := e2epod.FindContainerStatusInPod(pod, "blocked"); status != nil {
 		if (status.Started != nil && *status.Started) || status.LastTerminationState.Terminated != nil || status.State.Waiting == nil {
-			return fmt.Errorf("pod %s on node %s should not have started the blocked container: %#v", pod.Name, pod.Spec.NodeName, status)
+			return fmt.Errorf("pod %s on node %s %s should not have started the blocked container: %#v", pod.Name, pod.Spec.NodeName, v.scenario, status)
 		}
 	}
 
 	status := e2epod.FindContainerStatusInPod(pod, "fail")
 	if status == nil {
-		return fmt.Errorf("pod %s on node %s had incorrect containers: %#v", pod.Name, pod.Spec.NodeName, pod.Status)
+		return fmt.Errorf("pod %s on node %s %s had incorrect containers: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status)
 	}
 
 	t := status.State.Terminated
 	if v.hasTerminated {
 		if status.State.Waiting != nil || status.State.Running != nil {
-			return fmt.Errorf("pod %s on node %s was terminated and then changed state: %#v", pod.Name, pod.Spec.NodeName, status)
+			return fmt.Errorf("pod %s on node %s %s was terminated and then changed state: %#v", pod.Name, pod.Spec.NodeName, v.scenario, status)
 		}
 		if t == nil {
-			return fmt.Errorf("pod %s on node %s was terminated and then had termination cleared: %#v", pod.Name, pod.Spec.NodeName, status)
+			return fmt.Errorf("pod %s on node %s %s was terminated and then had termination cleared: %#v", pod.Name, pod.Spec.NodeName, v.scenario, status)
 		}
 	}
 	var hasNoStartTime bool
@@ -1021,26 +1018,26 @@ func (v *podStartVerifier) Verify(event watch.Event) error {
 			// expected, pod was force-killed after grace period
 		case t.ExitCode == 128 && (t.Reason == "StartError" || t.Reason == "ContainerCannotRun") && reBug88766.MatchString(t.Message):
 			// pod volume teardown races with container start in CRI, which reports a failure
-			framework.Logf("pod %s on node %s failed with the symptoms of https://github.com/kubernetes/kubernetes/issues/88766", pod.Name, pod.Spec.NodeName)
+			framework.Logf("pod %s on node %s %s failed with the symptoms of https://github.com/kubernetes/kubernetes/issues/88766", pod.Name, pod.Spec.NodeName, v.scenario)
 		default:
 			data, _ := json.MarshalIndent(pod.Status, "", "  ")
-			framework.Logf("pod %s on node %s had incorrect final status:\n%s", pod.Name, pod.Spec.NodeName, string(data))
-			return fmt.Errorf("pod %s on node %s container unexpected exit code %d: start=%s end=%s reason=%s message=%s", pod.Name, pod.Spec.NodeName, t.ExitCode, t.StartedAt, t.FinishedAt, t.Reason, t.Message)
+			framework.Logf("pod %s on node %s %s had incorrect final status:\n%s", pod.Name, pod.Spec.NodeName, v.scenario, string(data))
+			return fmt.Errorf("pod %s on node %s %s container unexpected exit code %d: start=%s end=%s reason=%s message=%s", pod.Name, pod.Spec.NodeName, v.scenario, t.ExitCode, t.StartedAt, t.FinishedAt, t.Reason, t.Message)
 		}
 		switch {
 		case v.duration > time.Hour:
 			// problem with status reporting
-			return fmt.Errorf("pod %s container %s on node %s had very long duration %s: start=%s end=%s", pod.Name, status.Name, pod.Spec.NodeName, v.duration, t.StartedAt, t.FinishedAt)
+			return fmt.Errorf("pod %s container %s on node %s %s had very long duration %s: start=%s end=%s", pod.Name, status.Name, pod.Spec.NodeName, v.scenario, v.duration, t.StartedAt, t.FinishedAt)
 		case hasNoStartTime:
 			// should never happen
-			return fmt.Errorf("pod %s container %s on node %s had finish time but not start time: end=%s", pod.Name, status.Name, pod.Spec.NodeName, t.FinishedAt)
+			return fmt.Errorf("pod %s container %s on node %s %s had finish time but not start time: end=%s", pod.Name, status.Name, pod.Spec.NodeName, v.scenario, t.FinishedAt)
 		}
 	}
 	if pod.Status.Phase == v1.PodFailed || pod.Status.Phase == v1.PodSucceeded {
 		v.hasTerminalPhase = true
 	} else {
 		if v.hasTerminalPhase {
-			return fmt.Errorf("pod %s on node %s was in a terminal phase and then reverted: %#v", pod.Name, pod.Spec.NodeName, pod.Status)
+			return fmt.Errorf("pod %s on node %s %s was in a terminal phase and then reverted: %#v", pod.Name, pod.Spec.NodeName, v.scenario, pod.Status)
 		}
 	}
 	return nil
@@ -1058,14 +1055,14 @@ func (v *podStartVerifier) VerifyFinal(scenario string, total time.Duration) (*v
 		}
 		switch {
 		case len(names) > 0:
-			errs = append(errs, fmt.Errorf("pod %s on node %s did not reach a terminal phase before being deleted but had running containers: phase=%s, running-containers=%s", pod.Name, pod.Spec.NodeName, pod.Status.Phase, strings.Join(names, ",")))
+			errs = append(errs, fmt.Errorf("pod %s on node %s %s did not reach a terminal phase before being deleted but had running containers: phase=%s, running-containers=%s", pod.Name, pod.Spec.NodeName, scenario, pod.Status.Phase, strings.Join(names, ",")))
 		case pod.Status.Phase != v1.PodPending:
-			errs = append(errs, fmt.Errorf("pod %s on node %s was not Pending but has no running containers: phase=%s", pod.Name, pod.Spec.NodeName, pod.Status.Phase))
+			errs = append(errs, fmt.Errorf("pod %s on node %s %s was not Pending but has no running containers: phase=%s", pod.Name, pod.Spec.NodeName, scenario, pod.Status.Phase))
 		}
 	}
 	if v.hasRunningContainers {
 		data, _ := json.MarshalIndent(pod.Status.ContainerStatuses, "", "  ")
-		errs = append(errs, fmt.Errorf("pod %s on node %s had running or unknown container status before being deleted:\n%s", pod.Name, pod.Spec.NodeName, string(data)))
+		errs = append(errs, fmt.Errorf("pod %s on node %s %s had running or unknown container status before being deleted:\n%s", pod.Name, pod.Spec.NodeName, scenario, string(data)))
 	}
 
 	framework.Logf("Pod %s on node %s %s total=%s run=%s execute=%s", pod.Name, pod.Spec.NodeName, scenario, total, v.completeDuration, v.duration)
