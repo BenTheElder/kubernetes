@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -704,6 +703,8 @@ func createAndTestPodRepeatedly(ctx context.Context, workers, iterations int, sc
 				created, err := podClient.Create(ctx, pod, metav1.CreateOptions{})
 				framework.ExpectNoError(err, "failed to create pod")
 
+				scheduled := make(chan struct{})
+				containerStatus := make(chan struct{})
 				ch := make(chan []watch.Event)
 				waitForWatch := make(chan struct{})
 				go func() {
@@ -722,10 +723,22 @@ func createAndTestPodRepeatedly(ctx context.Context, workers, iterations int, sc
 					events := []watch.Event{
 						{Type: watch.Added, Object: created},
 					}
+					sawScheduled := false
+					sawContainerStatus := false
 					for event := range w.ResultChan() {
 						events = append(events, event)
 						if event.Type == watch.Error {
 							framework.Logf("watch error seen for %s: %#v", pod.Name, event.Object)
+						}
+						if pod, ok := event.Object.(*v1.Pod); ok {
+							if !sawScheduled && pod.Spec.NodeName != "" {
+								sawScheduled = true
+								close(scheduled)
+							}
+							if !sawContainerStatus && (len(pod.Status.InitContainerStatuses) > 0 || len(pod.Status.ContainerStatuses) > 0) {
+								sawContainerStatus = true
+								close(containerStatus)
+							}
 						}
 						if scenario.IsLastEvent(event) {
 							framework.Logf("watch last event seen for %s", pod.Name)
@@ -740,6 +753,20 @@ func createAndTestPodRepeatedly(ctx context.Context, workers, iterations int, sc
 				case <-waitForWatch: // when the watch is established
 				}
 
+				// wait for scheduled
+				select {
+				case <-scheduled:
+					framework.Logf("%s scheduled at %s", pod.Name, time.Now())
+				case <-time.After(wait.ForeverTestTimeout):
+					framework.Logf("%s scheduled timeout at %s", pod.Name, time.Now())
+				}
+				// wait for container status
+				select {
+				case <-containerStatus:
+					framework.Logf("%s container status seen at %s", pod.Name, time.Now())
+				case <-time.After(wait.ForeverTestTimeout):
+					framework.Logf("%s container status timeout at %s", pod.Name, time.Now())
+				}
 				verifier, scenario, err := scenario.Action(ctx, pod)
 				framework.ExpectNoError(err, "failed to take action")
 
@@ -835,9 +862,9 @@ func (s podFastDeleteScenario) IsLastEvent(event watch.Event) bool {
 }
 
 func (s podFastDeleteScenario) Action(ctx context.Context, pod *v1.Pod) (podScenarioVerifier, string, error) {
-	t := time.Duration(rand.Intn(s.delayMs)) * time.Millisecond
+	t := time.Duration(0) // time.Duration(rand.Intn(s.delayMs)) * time.Millisecond
 	scenario := fmt.Sprintf("t=%s", t.String())
-	time.Sleep(t)
+	// time.Sleep(t)
 	return &podStartVerifier{pod: pod, scenario: scenario}, scenario, s.client.Delete(ctx, pod.Name, metav1.DeleteOptions{})
 }
 
