@@ -733,6 +733,14 @@ function ensure-containerd-runtime {
     exit 2
   fi
   runc --version
+  # wrap runc in a debug wrapper
+  local runc_original_path=$(which runc)
+  mv "${runc_original_path}" "${runc_original_path}.real"
+  cat <<EOF >$"{runc_original_path}"
+#!/bin/bash
+exec runc.real --debug "$@"
+EOF
+  chmod +x "${runc_original_path}"
 }
 
 function ensure-container-runtime {
