@@ -736,9 +736,11 @@ function ensure-containerd-runtime {
   # wrap runc in a debug wrapper
   local runc_original_path=$(which runc)
   mv "${runc_original_path}" "${runc_original_path}.real"
-  cat <<EOF >$"{runc_original_path}"
+cat <<EOF >"${runc_original_path}"
 #!/bin/bash
-exec runc.real --debug "$@"
+mkdir -p /var/log/runc-logs/
+_____log_dir="(TMPDIR=/var/log/runc-logs/ mktemp -d)"
+runc.real --debug "$@" 2>&1 | tee "${_____log_dir}"
 EOF
   chmod +x "${runc_original_path}"
 }
