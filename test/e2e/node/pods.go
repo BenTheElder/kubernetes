@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -865,7 +866,59 @@ func (s podFastDeleteScenario) Action(ctx context.Context, pod *v1.Pod) (podScen
 	t := time.Duration(0) // time.Duration(rand.Intn(s.delayMs)) * time.Millisecond
 	scenario := fmt.Sprintf("t=%s", t.String())
 	// time.Sleep(t)
-	return &podStartVerifier{pod: pod, scenario: scenario}, scenario, s.client.Delete(ctx, pod.Name, metav1.DeleteOptions{})
+	deleteErr := s.client.Delete(ctx, pod.Name, metav1.DeleteOptions{})
+	if deleteErr == nil {
+		// poll for termination
+		err := wait.PollImmediate(50*time.Millisecond, wait.ForeverTestTimeout, func() (bool, error) {
+			livePod, err := s.client.Get(ctx, pod.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			stillRunning := false
+			for _, cs := range livePod.Status.InitContainerStatuses {
+				if cs.State.Running != nil {
+					stillRunning = true
+				}
+				if cs.State.Terminated != nil && cs.State.Terminated.ExitCode == 2 {
+					// try to grab logs
+					if logs, err := s.client.GetLogs(pod.Name, &v1.PodLogOptions{Container: cs.Name}).DoRaw(ctx); err != nil {
+						framework.Logf("error getting logs for %s: %v", pod.Name, err)
+					} else {
+						framework.Logf("logs for %s:\n%s", pod.Name, string(logs))
+					}
+					// no need to wait longer
+					return true, nil
+				}
+			}
+			for _, cs := range livePod.Status.ContainerStatuses {
+				if cs.State.Running != nil {
+					stillRunning = true
+				}
+				if cs.State.Terminated != nil && cs.State.Terminated.ExitCode == 2 {
+					// try to grab logs
+					if logs, err := s.client.GetLogs(pod.Name, &v1.PodLogOptions{Container: cs.Name}).DoRaw(ctx); err != nil {
+						framework.Logf("error getting logs for %s: %v", pod.Name, err)
+					} else {
+						framework.Logf("logs for %s:\n%s", pod.Name, string(logs))
+					}
+					// no need to wait longer
+					return true, nil
+				}
+			}
+			if stillRunning {
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			framework.Logf("error waiting for %s: %v", pod.Name, err)
+		}
+	}
+	// drop the finalizer
+	if _, err := s.client.Patch(ctx, pod.Name, types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`), metav1.PatchOptions{}); err != nil {
+		framework.Logf("error dropping finalizer for %s: %v", pod.Name, err)
+	}
+	return &podStartVerifier{pod: pod, scenario: scenario}, scenario, deleteErr
 }
 
 func (s podFastDeleteScenario) Pod(worker, attempt int) *v1.Pod {
@@ -880,6 +933,7 @@ func (s podFastDeleteScenario) Pod(worker, attempt int) *v1.Pod {
 					"name": "foo",
 					"time": value,
 				},
+				Finalizers: []string{"e2e.kubernetes.io/pod-fast-delete-scenario"},
 			},
 			Spec: v1.PodSpec{
 				RestartPolicy:                 v1.RestartPolicyNever,
