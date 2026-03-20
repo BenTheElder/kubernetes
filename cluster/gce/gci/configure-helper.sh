@@ -3280,7 +3280,7 @@ disabled_plugins = ["io.containerd.internal.v1.restart"]
 oom_score = -999
 
 [debug]
-  level = "${CONTAINERD_LOG_LEVEL:-"info"}"
+  level = "trace"
 
 [plugins."io.containerd.grpc.v1.cri"]
   stream_server_address = "127.0.0.1"
