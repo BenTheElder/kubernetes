@@ -35,6 +35,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -99,6 +100,13 @@ type Client struct {
 	newEtcdClient func(endpoints []string) (etcdClient, error)
 
 	listMembersFunc func(timeout time.Duration) (*clientv3.MemberListResponse, error)
+}
+
+type etcdMemberStatus struct {
+	ep     string
+	status *clientv3.StatusResponse
+	// err is any error encountered while communicating with the etcd server.
+	err error
 }
 
 // New creates a new EtcdCluster client
@@ -638,13 +646,28 @@ func (c *Client) MemberPromote(learnerID uint64) error {
 
 // CheckClusterHealth returns nil for status Up or error for status Down
 func (c *Client) CheckClusterHealth() error {
-	_, err := c.getClusterStatus()
+	_, ok, err := c.getClusterStatus()
+	if err != nil {
+		klog.V(1).Infof("[etcd] cluster has quorum: %t; some members are not healthy: %v\n", ok, err)
+	}
+	if ok {
+		return nil
+	}
 	return err
 }
 
-// getClusterStatus returns nil for status Up (along with endpoint status response map) or error for status Down
-func (c *Client) getClusterStatus() (map[string]*clientv3.StatusResponse, error) {
-	clusterStatus := make(map[string]*clientv3.StatusResponse)
+// getClusterStatus checks the health of the cluster members and returns
+// their individual status map, whether cluster quorum is satisfied, and any
+// aggregated member errors.
+//
+// The boolean result is true when a majority of members are healthy
+// (healthyCount > totalCount/2).
+//
+// A member is considered unhealthy if its status request failed or if the
+// reported status contains health errors.
+func (c *Client) getClusterStatus() (map[string]*etcdMemberStatus, bool, error) {
+	// Step 1: get the cluster status first
+	clusterStatus := make(map[string]*etcdMemberStatus)
 	for _, ep := range c.Endpoints {
 		// Gets the member status
 		var lastError error
@@ -653,6 +676,7 @@ func (c *Client) getClusterStatus() (map[string]*clientv3.StatusResponse, error)
 			true, func(_ context.Context) (bool, error) {
 				cli, err := c.newEtcdClient(c.Endpoints)
 				if err != nil {
+					klog.V(5).Infof("Failed to create etcd client with %v: %v", c.Endpoints, err)
 					lastError = err
 					return false, nil
 				}
@@ -669,15 +693,33 @@ func (c *Client) getClusterStatus() (map[string]*clientv3.StatusResponse, error)
 				return false, nil
 			})
 		if err != nil {
-			return nil, lastError
+			clusterStatus[ep] = &etcdMemberStatus{ep: ep, err: lastError}
+		} else {
+			clusterStatus[ep] = &etcdMemberStatus{ep: ep, status: resp}
 		}
-
-		clusterStatus[ep] = resp
 	}
-	return clusterStatus, nil
+
+	// Step 2: evaluate the cluster status
+	totalCount, healthyCount := len(clusterStatus), 0
+	var memberErrs []error
+
+	for ep, epStatus := range clusterStatus {
+		if epStatus.err != nil {
+			memberErrs = append(memberErrs, errors.Wrapf(epStatus.err, "the status of member %s is not available", ep))
+			continue
+		}
+		if len(epStatus.status.Errors) > 0 {
+			memberErrs = append(memberErrs, errors.Errorf("member %s is not healthy: %s", ep, strings.Join(epStatus.status.Errors, ",")))
+			continue
+		}
+		healthyCount++
+	}
+
+	err := utilerrors.NewAggregate(memberErrs)
+	return clusterStatus, healthyCount > totalCount/2, err
 }
 
-// WaitForClusterAvailable returns true if all endpoints in the cluster are available after retry attempts, an error is returned otherwise
+// WaitForClusterAvailable returns true if the etcd cluster is healthy after retry attempts, otherwise returns an error.
 func (c *Client) WaitForClusterAvailable(retries int, retryInterval time.Duration) (bool, error) {
 	for i := range retries {
 		if i > 0 {
@@ -685,17 +727,13 @@ func (c *Client) WaitForClusterAvailable(retries int, retryInterval time.Duratio
 			time.Sleep(retryInterval)
 		}
 		klog.V(2).Infof("[etcd] attempting to see if all cluster endpoints (%s) are available %d/%d", c.Endpoints, i+1, retries)
-		_, err := c.getClusterStatus()
+		_, ok, err := c.getClusterStatus()
 		if err != nil {
-			switch err {
-			case context.DeadlineExceeded:
-				klog.V(1).Infof("[etcd] Attempt timed out")
-			default:
-				klog.V(1).Infof("[etcd] Attempt failed with error: %v\n", err)
-			}
-			continue
+			klog.V(1).Infof("[etcd] cluster has quorum: %t; some members are not healthy: %v\n", ok, err)
 		}
-		return true, nil
+		if ok {
+			return true, nil
+		}
 	}
 	return false, errors.New("timeout waiting for etcd cluster to be available")
 }
