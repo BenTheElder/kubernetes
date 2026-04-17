@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -543,7 +544,7 @@ func (c *Client) addMember(name string, peerAddrs string, isLearner bool) ([]Mem
 
 	if !isLearner {
 		// Add the new member client address to the list of endpoints
-		c.Endpoints = append(c.Endpoints, GetClientURLByIP(parsedPeerAddrs.Hostname()))
+		c.addEndpoint(GetClientURLByIP(parsedPeerAddrs.Hostname()))
 	}
 
 	return ret, nil
@@ -625,11 +626,12 @@ func (c *Client) MemberPromote(learnerID uint64) error {
 	// 2. context deadline exceeded
 	// 3. peer URLs already exists
 	// Once the client provides a way to check if the etcd learner is ready to promote, the retry logic can be revisited.
+	var promoteResp *clientv3.MemberPromoteResponse
 	err = wait.PollUntilContextTimeout(context.Background(), constants.EtcdAPICallRetryInterval, kubeadmapi.GetActiveTimeouts().EtcdAPICall.Duration,
 		true, func(_ context.Context) (bool, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), etcdTimeout)
 			defer cancel()
-			_, err = cli.MemberPromote(ctx, learnerID)
+			promoteResp, err = cli.MemberPromote(ctx, learnerID)
 			if err == nil {
 				klog.V(1).Infof("[etcd] The learner was promoted as a voting member: %s", learnerIDUint)
 				return true, nil
@@ -641,7 +643,26 @@ func (c *Client) MemberPromote(learnerID uint64) error {
 	if err != nil {
 		return lastError
 	}
+
+	for _, m := range promoteResp.Members {
+		if m.ID == learnerID {
+			parsedPeerAddrs, err := url.Parse(m.PeerURLs[0])
+			if err != nil {
+				return errors.Wrapf(err, "error parsing peer address %s", m.PeerURLs[0])
+			}
+			c.addEndpoint(GetClientURLByIP(parsedPeerAddrs.Hostname()))
+			break
+		}
+	}
+
 	return nil
+}
+
+func (c *Client) addEndpoint(ep string) {
+	if slices.Contains(c.Endpoints, ep) {
+		return
+	}
+	c.Endpoints = append(c.Endpoints, ep)
 }
 
 // CheckClusterHealth returns nil for status Up or error for status Down
